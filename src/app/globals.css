@@ -27,3 +27,28 @@ body { min-height: 100dvh; }
 ::selection { background: rgba(139,92,246,0.4); color: white; }
 
 code, .font-mono { font-family: "JetBrains Mono", monospace; }
+
+/* AdSense placeholder styling */
+.adsbygoogle { min-width: 0; }
+.adsense-container { min-height: 50px; }
+
+/* Accessibility */
+:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
+}
+
+/* Skip link */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: #7c3aed;
+  color: white;
+  padding: 8px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 14px;
+  z-index: 100;
+}
+.skip-link:focus { top: 6px; }
