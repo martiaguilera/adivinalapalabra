@@ -175,6 +175,20 @@ export default function GamePage() {
 
         <AttemptList attempts={attempts} />
 
+        {!won && (
+          <details className="mt-5 group">
+            <summary className="text-center text-xs text-white/20 hover:text-white/40 cursor-pointer transition-colors list-none select-none">
+              👁 Revelar palabra
+            </summary>
+            <div className="mt-2 bg-white/5 border border-red-400/20 rounded-xl px-4 py-3 text-center">
+              <p className="text-xs text-white/30 mb-1">La palabra es</p>
+              <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-400 capitalize tracking-widest">
+                {daily?.word}
+              </p>
+            </div>
+          </details>
+        )}
+
         {attempts.length === 0 && (
           <div className="mt-6 text-center text-white/20 text-xs leading-relaxed">
             Escribe cualquier palabra en español.<br />
