@@ -307,7 +307,7 @@ export default function GamePage() {
         )}
 
         {/* Attempts sorted hottest → coldest */}
-        <AttemptList attempts={sortedAttempts} showRank={false} />
+        <AttemptList attempts={sortedAttempts} />
 
         {attempts.length === 0 && (
           <div className="mt-6 text-center text-white/20 text-xs leading-relaxed">
