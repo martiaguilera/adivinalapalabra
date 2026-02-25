@@ -104,7 +104,7 @@ function computeScoreFallback(attempt: string, target: string): number {
   // Bigrams
   const bg = (s: string) => { const r = new Set<string>(); for (let i=0;i<s.length-1;i++) r.add(s.slice(i,i+2)); return r; };
   const ba = bg(a), bt = bg(t);
-  const inter = [...ba].filter(x => bt.has(x)).length;
+  const inter = Array.from(ba).filter(x => bt.has(x)).length;
   const bigramSim = (ba.size + bt.size) > 0 ? inter / (ba.size + bt.size - inter) : 0;
 
   const combined = levScore * 0.5 + bigramSim * 0.5;
