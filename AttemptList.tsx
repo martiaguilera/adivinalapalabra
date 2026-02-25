@@ -26,29 +26,31 @@ const directionConfig = {
 
 interface AttemptListProps {
   attempts: Attempt[];
-  showRank?: boolean;
 }
 
-export function AttemptList({ attempts, showRank = false }: AttemptListProps) {
+export function AttemptList({ attempts }: AttemptListProps) {
   if (attempts.length === 0) {
     return (
       <div className="text-center text-white/30 py-8 text-sm italic">
-        Escriu el teu primer intent ↑
+        Escribe tu primer intento arriba ↑
       </div>
     );
   }
 
+  // Sort hottest → coldest
+  const sorted = [...attempts].sort((a, b) => b.score - a.score);
+
   return (
     <div className="space-y-2 mt-4">
-      {/* Header label */}
       <div className="flex items-center gap-2 mb-1 px-1">
-        <span className="text-xs text-white/30 uppercase tracking-wider">Intents ordenats per puntuació</span>
+        <span className="text-xs text-white/30 uppercase tracking-wider">
+          {attempts.length} intento{attempts.length !== 1 ? "s" : ""} · ordenados por puntuación
+        </span>
         <div className="flex-1 h-px bg-white/5" />
       </div>
 
-      {attempts.map((attempt, idx) => {
+      {sorted.map((attempt, idx) => {
         const config = directionConfig[attempt.direction];
-        const isTop = idx === 0 && attempt.score >= 50;
         return (
           <div
             key={`${attempt.word}-${idx}`}
@@ -56,8 +58,7 @@ export function AttemptList({ attempts, showRank = false }: AttemptListProps) {
           >
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-2">
-                {/* Rank badge */}
-                <span className={`text-xs font-mono w-5 text-center ${isTop && idx === 0 ? "text-amber-400" : "text-white/25"}`}>
+                <span className={`text-xs font-mono w-5 text-center ${idx === 0 ? "text-amber-400" : "text-white/25"}`}>
                   {idx === 0 ? "★" : `${idx + 1}`}
                 </span>
                 <span className="font-semibold text-white capitalize">
