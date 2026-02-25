@@ -1,4 +1,3 @@
-import { getTodayString } from "./dailyWord";
 import { DailyWord } from "./wordGenerator";
 
 export interface Attempt {
@@ -23,7 +22,7 @@ export function loadGameState(): GameState | null {
     if (!raw) return null;
     const state: GameState = JSON.parse(raw);
     // Only restore if same day AND has a valid word
-    if (state.date !== getTodayString() || !state.daily?.word) return null;
+    if (!state.daily?.word) return null;
     return state;
   } catch {
     return null;
