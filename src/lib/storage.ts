@@ -1,4 +1,5 @@
 import { getTodayString } from "./dailyWord";
+import { DailyWord } from "./wordGenerator";
 
 export interface Attempt {
   word: string;
@@ -8,6 +9,7 @@ export interface Attempt {
 
 export interface GameState {
   date: string;
+  daily: DailyWord;
   attempts: Attempt[];
   won: boolean;
 }
@@ -20,8 +22,8 @@ export function loadGameState(): GameState | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const state: GameState = JSON.parse(raw);
-    // Only return state if it's from today
-    if (state.date !== getTodayString()) return null;
+    // Only restore if same day AND has a valid word
+    if (state.date !== getTodayString() || !state.daily?.word) return null;
     return state;
   } catch {
     return null;
@@ -32,16 +34,12 @@ export function saveGameState(state: GameState): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // ignore
-  }
+  } catch { /* ignore */ }
 }
 
 export function clearGameState(): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // ignore
-  }
+  } catch { /* ignore */ }
 }

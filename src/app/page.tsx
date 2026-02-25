@@ -1,111 +1,144 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getTodayString, getDailyWord } from "@/lib/dailyWord";
+import { generateWordAI, DailyWord } from "@/lib/wordGenerator";
 import { computeScoreAI, getDirection, normalize } from "@/lib/scoring";
 import { loadGameState, saveGameState, clearGameState, Attempt } from "@/lib/storage";
 import { WordInput } from "@/components/WordInput";
 import { AttemptList } from "@/components/AttemptList";
 import { VictoryModal } from "@/components/VictoryModal";
-
-interface DailyEntry { word: string; theme: string; source: "ai" | "static"; }
+import { getTodayString } from "@/lib/dailyWord";
 
 const themeEmojis: Record<string, string> = {
-  Animales:"🐾",Deportes:"⚽",Cine:"🎬",Cocina:"🍽️",Música:"🎵",
-  Ciencia:"🔬",Tecnología:"💻",Naturaleza:"🌿",Historia:"📜",Arte:"🎨",
-  Geografía:"🌍",Literatura:"📚",Viajes:"✈️",Moda:"👗",Arquitectura:"🏛️",
+  Animales:"🐾", Deportes:"⚽", Cine:"🎬", Cocina:"🍽️", Música:"🎵",
+  Ciencia:"🔬", Tecnología:"💻", Naturaleza:"🌿", Historia:"📜", Arte:"🎨",
+  Geografía:"🌍", Literatura:"📚", Viajes:"✈️", Arquitectura:"🏛️", Mitología:"⚡",
 };
 
 export default function GamePage() {
   const [dateStr] = useState(getTodayString);
-  const [daily, setDaily] = useState<DailyEntry | null>(null);
+  const [daily, setDaily] = useState<DailyWord | null>(null);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [won, setWon] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [fetchingWord, setFetchingWord] = useState(true);
+  const [generatingWord, setGeneratingWord] = useState(true);
+  const [scoringLoading, setScoringLoading] = useState(false);
 
-  useEffect(() => {
-    async function fetchDaily() {
-      setFetchingWord(true);
-      try {
-        const res = await fetch("/api/daily", { cache: "no-store" });
-        if (res.ok) { setDaily(await res.json()); }
-        else { throw new Error("API failed"); }
-      } catch {
-        const fallback = getDailyWord(dateStr);
-        setDaily({ ...fallback, source: "static" });
-      } finally { setFetchingWord(false); }
-    }
-    fetchDaily();
-  }, [dateStr]);
+  // Generate a new word (called on mount and on "Nueva partida")
+  const generateNew = useCallback(async () => {
+    setGeneratingWord(true);
+    clearGameState();
+    setAttempts([]);
+    setWon(false);
+    const newWord = await generateWordAI();
+    setDaily(newWord);
+    setGeneratingWord(false);
+  }, []);
 
+  // On first load: try to restore saved game, else generate new word
   useEffect(() => {
     const saved = loadGameState();
-    if (saved) { setAttempts(saved.attempts); setWon(saved.won); }
-    setMounted(true);
+    if (saved && saved.daily) {
+      // Restore existing session
+      setDaily(saved.daily);
+      setAttempts(saved.attempts);
+      setWon(saved.won);
+      setGeneratingWord(false);
+    } else {
+      generateNew();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleGuess = useCallback(async (word: string) => {
-    if (!daily) return;
+    if (!daily || generatingWord) return;
     const normTarget = normalize(daily.word);
     const normGuess = normalize(word);
     if (attempts.some((a) => normalize(a.word) === normGuess)) return;
-    setLoading(true);
+
+    setScoringLoading(true);
     const score = normGuess === normTarget ? 100 : await computeScoreAI(word, daily.word);
-    setLoading(false);
+    setScoringLoading(false);
+
     const prevScore = attempts.length > 0 ? attempts[attempts.length - 1].score : null;
     const direction = getDirection(score, prevScore);
     const isWin = score === 100;
     const newAttempts = [...attempts, { word, score, direction }];
+
     setAttempts(newAttempts);
     if (isWin) setWon(true);
-    saveGameState({ date: dateStr, attempts: newAttempts, won: isWin || won });
-  }, [attempts, daily, dateStr, won]);
-
-  const handleRestart = useCallback(() => { clearGameState(); setAttempts([]); setWon(false); }, []);
+    saveGameState({ date: dateStr, daily, attempts: newAttempts, won: isWin || won });
+  }, [attempts, daily, dateStr, generatingWord, won]);
 
   const themeEmoji = daily ? (themeEmojis[daily.theme] ?? "🔤") : "🔤";
   const bestScore = attempts.length > 0 ? Math.max(...attempts.map((a) => a.score)) : 0;
 
-  if (!mounted || fetchingWord) {
+  // Full-screen loading while generating word
+  if (generatingWord) {
     return (
-      <div className="min-h-screen bg-[#0d0820] flex flex-col items-center justify-center gap-3">
-        <div className="w-8 h-8 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
-        <p className="text-white/30 text-sm">{fetchingWord ? "Generando palabra del día…" : "Cargando…"}</p>
+      <div className="min-h-screen bg-[#0d0820] flex flex-col items-center justify-center gap-4">
+        <div className="relative">
+          <div className="w-16 h-16 rounded-full border-2 border-violet-500/30" />
+          <div className="absolute inset-0 w-16 h-16 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
+        </div>
+        <div className="text-center">
+          <p className="text-white/60 text-sm font-medium">Generando palabra…</p>
+          <p className="text-white/25 text-xs mt-1">La IA está pensando</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#0d0820] text-white">
+      {/* Background blobs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-violet-600/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl" />
       </div>
+
       <div className="relative z-10 max-w-lg mx-auto px-4 py-6 pb-12">
+
+        {/* Header */}
         <header className="text-center mb-6">
           <div className="inline-flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-full px-3 py-1 text-xs text-white/40 mb-3 font-mono">
-            📅 {dateStr}{daily?.source === "ai" && <span className="ml-1 text-violet-400">✦ IA</span>}
+            📅 {dateStr} <span className="text-violet-400">✦ IA</span>
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white">
             Adivina la{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-pink-400">Palabra</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-pink-400">
+              Palabra
+            </span>
           </h1>
         </header>
 
+        {/* Theme + attempts */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-4 flex items-center justify-between">
           <div>
-            <div className="text-xs text-white/40 uppercase tracking-wider mb-0.5">Tema del día</div>
-            <div className="text-lg font-bold text-white flex items-center gap-2">{themeEmoji} {daily?.theme}</div>
+            <div className="text-xs text-white/40 uppercase tracking-wider mb-0.5">Tema</div>
+            <div className="text-lg font-bold text-white flex items-center gap-2">
+              {themeEmoji} {daily?.theme}
+            </div>
           </div>
-          <div className="text-right">
-            <div className="text-xs text-white/40 uppercase tracking-wider mb-0.5">Intentos</div>
-            <div className="text-2xl font-bold text-white">{attempts.length}</div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <div className="text-xs text-white/40 uppercase tracking-wider mb-0.5">Intentos</div>
+              <div className="text-2xl font-bold text-white">{attempts.length}</div>
+            </div>
+            {/* Nueva partida button */}
+            <button
+              onClick={generateNew}
+              disabled={scoringLoading}
+              aria-label="Nueva partida"
+              title="Generar nueva palabra"
+              className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/10 hover:bg-violet-500/30 border border-white/10 hover:border-violet-400/40 text-white/50 hover:text-violet-300 transition-all disabled:opacity-30 text-base"
+            >
+              ↺
+            </button>
           </div>
         </div>
 
+        {/* Best score bar */}
         {attempts.length > 0 && (
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-4">
             <div className="flex justify-between items-center mb-2">
@@ -113,7 +146,10 @@ export default function GamePage() {
               <span className="text-sm font-bold text-white">{bestScore}%</span>
             </div>
             <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-pink-500 transition-all duration-700" style={{ width: `${bestScore}%` }} />
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-pink-500 transition-all duration-700"
+                style={{ width: `${bestScore}%` }}
+              />
             </div>
             {bestScore >= 70 && !won && (
               <p className="text-xs text-violet-300 mt-1.5 text-center animate-pulse">¡Estás muy cerca! 🔥</p>
@@ -121,24 +157,19 @@ export default function GamePage() {
           </div>
         )}
 
+        {/* Input */}
         {!won && (
           <div className="mb-4">
-            <label htmlFor="word-input" className="block text-xs text-white/40 uppercase tracking-wider mb-2">Tu intento</label>
-            <WordInput onSubmit={handleGuess} disabled={won || loading} />
-            {loading && (
+            <label htmlFor="word-input" className="block text-xs text-white/40 uppercase tracking-wider mb-2">
+              Tu intento
+            </label>
+            <WordInput onSubmit={handleGuess} disabled={scoringLoading} />
+            {scoringLoading && (
               <div className="flex items-center gap-2 mt-2 text-xs text-violet-300 animate-pulse">
                 <div className="w-3 h-3 rounded-full border border-violet-400 border-t-transparent animate-spin" />
                 Consultando IA semántica…
               </div>
             )}
-          </div>
-        )}
-
-        {attempts.length > 0 && (
-          <div className="flex justify-end mb-2">
-            <button onClick={handleRestart} className="text-xs text-white/30 hover:text-white/60 transition-colors focus:outline-none focus:underline">
-              ↺ Nueva partida
-            </button>
           </div>
         )}
 
@@ -153,7 +184,7 @@ export default function GamePage() {
       </div>
 
       {won && daily && (
-        <VictoryModal word={daily.word} attempts={attempts} dateStr={dateStr} onRestart={handleRestart} />
+        <VictoryModal word={daily.word} attempts={attempts} dateStr={dateStr} onRestart={generateNew} />
       )}
 
       <style jsx global>{`
