@@ -12,26 +12,20 @@ export interface DailyWord {
   theme: string;
 }
 
-/**
- * Ask the AI to generate a random Spanish word with its theme.
- * Falls back to static selection if AI fails.
- */
 export async function generateWordAI(): Promise<DailyWord> {
-  // Pick a random theme
   const theme = THEMES[Math.floor(Math.random() * THEMES.length)];
-
   const prompt = `Eres un generador de palabras para un juego de adivinanzas en español.
-Tema asignado: ${theme}
+Tema: ${theme}
 
 Genera UNA sola palabra en español del tema "${theme}".
 Requisitos:
 - Palabra común conocida por hispanohablantes
 - Entre 4 y 10 letras
-- Sin tildes ni acentos (escríbela sin acentos)
-- Una sola palabra, sin espacios ni guiones
-- Ni muy obvia ni muy rara: dificultad media
+- Sin tildes ni acentos
+- Una sola palabra, sin espacios
+- Dificultad media
 
-Responde ÚNICAMENTE con JSON en este formato exacto:
+Responde ÚNICAMENTE con JSON exacto:
 {"word":"lapalabra","theme":"${theme}"}`;
 
   try {
@@ -52,34 +46,24 @@ Responde ÚNICAMENTE con JSON en este formato exacto:
     });
 
     if (!res.ok) throw new Error(`OpenRouter ${res.status}`);
-
     const data = await res.json();
     const raw = data.choices?.[0]?.message?.content?.trim() ?? "";
-
-    // Parse JSON response
     const clean = raw.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(clean) as { word: string; theme: string };
-
     const word = parsed.word
-      .toLowerCase()
-      .trim()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase().trim()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z]/g, "");
-
     if (word.length >= 4 && word.length <= 12) {
       return { word, theme: parsed.theme ?? theme };
     }
     throw new Error(`Invalid word: "${word}"`);
   } catch (err) {
-    console.error("AI word generation failed, using fallback:", err);
+    console.error("AI word generation failed:", err);
     return getFallbackWord();
   }
 }
 
-/**
- * Static fallback in case AI is unavailable
- */
 function getFallbackWord(): DailyWord {
   const fallbacks: DailyWord[] = [
     { word: "tigre", theme: "Animales" },

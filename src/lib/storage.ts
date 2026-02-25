@@ -1,4 +1,3 @@
-import { getTodayString } from "./dailyWord";
 import { DailyWord } from "./wordGenerator";
 
 export interface Attempt {
@@ -7,14 +6,24 @@ export interface Attempt {
   direction: "closer" | "farther" | "same";
 }
 
+export interface SolvedWord {
+  word: string;
+  theme: string;
+  attempts: number;
+  revealed: boolean;
+  date: number;
+}
+
 export interface GameState {
   date: string;
   daily: DailyWord;
   attempts: Attempt[];
   won: boolean;
+  revealed: boolean;
+  solvedWords: SolvedWord[];
 }
 
-const STORAGE_KEY = "adivinalapalabra_state";
+const STORAGE_KEY = "adivinalapalabra_state_v2";
 
 export function loadGameState(): GameState | null {
   if (typeof window === "undefined") return null;
@@ -22,8 +31,7 @@ export function loadGameState(): GameState | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const state: GameState = JSON.parse(raw);
-    // Only restore if same day AND has a valid word
-    if (state.date !== getTodayString() || !state.daily?.word) return null;
+    if (!state.daily?.word) return null;
     return state;
   } catch {
     return null;
@@ -37,9 +45,21 @@ export function saveGameState(state: GameState): void {
   } catch { /* ignore */ }
 }
 
-export function clearGameState(): void {
+export function loadSolvedWords(): SolvedWord[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const state: Partial<GameState> = JSON.parse(raw);
+    return state.solvedWords ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export function clearCurrentGame(solvedWords: SolvedWord[]): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ solvedWords }));
   } catch { /* ignore */ }
 }
